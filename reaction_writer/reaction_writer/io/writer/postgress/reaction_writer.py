@@ -71,3 +71,4 @@ class PostgresReactionWriter(ReactionWriterABC):
     async def close(self):
         if self._pool:
             await self._pool.close()
+        self._pool = None
