@@ -10,5 +10,5 @@ class Settings(BaseSettings):
     update_reactions_period: float = 1.0  # in seconds
     dbcommand_timeout: float = 30.0  # in seconds
     api_host: str = "0.0.0.0"
-    api_port: int = 8080
+    api_port: int = 8000
     debug: bool = True

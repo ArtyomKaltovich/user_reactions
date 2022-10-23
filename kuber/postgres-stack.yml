@@ -1,31 +1,43 @@
-apiVersion: kubegres.reactive-tech.io/v1
-kind: Kubegres
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: users-reactions-postgres
-  namespace: default
-
+  labels:
+    app: psql
 spec:
-   replicas: 1  # we won't read from db very often, so 1 replica should be enough
-   image: postgres:14.1
+  replicas: 1  # we won't read from db very often, so 1 replica should be enough
+  selector:
+    matchLabels:
+      app: psql
+  template:
+    metadata:
+      labels:
+        app: psql
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:latest
+          imagePullPolicy: "IfNotPresent"
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: superUserPassword
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: pgdatavol
+      volumes:
+        - name: pgdatavol
+          persistentVolumeClaim:
+            claimName: postgres-pv-claim
 
-   database:
-      size: 200Mi
-
-   env:
-      - name: POSTGRES_PASSWORD
-        valueFrom:
-           secretKeyRef:
-              name: postgres-secret
-              key: superUserPassword
-
-      - name: POSTGRES_REPLICATION_PASSWORD
-        valueFrom:
-           secretKeyRef:
-              name: postgres-secret
-              key: replicationUserPassword
 ---
-kind: PersistentVolume
+
 apiVersion: v1
+kind: PersistentVolume
 metadata:
   name: postgres-pv
   labels:
@@ -35,10 +47,12 @@ spec:
   capacity:
     storage: 100M
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   hostPath:
     path: "/mnt/data"
+
 ---
+
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -48,7 +62,7 @@ metadata:
 spec:
   storageClassName: manual
   accessModes:
-  - ReadWriteOnce
+    - ReadWriteMany
   resources:
     requests:
       storage: 100M
