@@ -1,8 +1,5 @@
 # Description
-HTTP-based API returns a list with the average prices for each day on 
-a route between two destinations (ports or regions)
-
-The project consist of two folders: db and routes_api_service.
+Service for reading and writing user reactions.
 
 # Getting started
 
@@ -24,88 +21,102 @@ In case of any problem, please check you env settings,
 you can check list of env setting for api in `routes_api_service/settings.py`.
 And do not hesitate to ask me `kaltovichartyom@gmail.com` :). 
 
-# Data definition
+# Architecture
 
-Data is organized in two tables:
+Requirements are following:
 
-## Destinations
+- The server will receive many more GET requests (95%) for the current hour than for hours in the past (5%).
+- Most POST requests received by the server will contain a timestamp that matches the current timestamp (95%)
+- Additional servers should be able to be spun up, at any time, without effecting the correctness of our metrics.
 
-|name|slug|path|is_port|
-|----|----|----|-------|
-|China Main|china_main|china_main|false|
-|Northern Europe|northern_europe|northern_europe|false|
-|Reykjavík|ISREY|northern_europe.scandinavia.ISREY|true|
-|Bilbao|ESBIO|northern_europe.north_europe_sub.ESBIO|true|
+I've made following assumptions:
 
-It contains routes destinations, which can be either port, or regions
-containing several ports or other regions.
+- There will be not many post request
+- Availability and scalability of get requests are the most important,
+    service can return outdated info for some time.
 
-``path`` column defines destination hierarchy, 
-while ``is_port`` flag is used to differentiate ports and regions.
-``name`` and ``slug`` seems to be self-explanatory.
+> **_NOTE:_** If it is not true, contact me to change the approach.
 
+The system contains the followings parts:
+- reader
+- writer
+- storage
 
-## Prices
+Because there will be a lot of read requests and info are grouped by hour,
+the reader service keeps data in the memory.
+Usual year has 365 solar days + 5 hours 48 minutes 46 seconds.
+So we will have *(~365 * 24 + 6)* * *number_of_years* * *message_size* 
+it is not big number, so all the data can be placed in memory.
 
-|orig_code|dest_code|day|price|
-|---------|---------|---|-----|
-|CNGGZ|EETLL|2016-01-01|1244|
-|CNGGZ|EETLL|2016-01-01|1140|
+Reader services get the data at the startup. To keep the cache up-to-date reader
+will request data from the storage in background task.
 
-## Other
+It could possibly lead to outdated data in get requests, but not more than
+background task period. And because we make 
+*number_of_reader_instances* / *update_period* request to db. And amount of the data
+is small we can keep all the data in one instance of db. 
+PostgreSQL were chosen, because it is quite good baseline.
 
-The db contains 3 indexes for now: for ``path`` column of ``Destinations``
-and for ``orig_code`` and ``dest_code`` of ``Prices``.
-No triggers, procedures or constraints presented for now.
+Both services were implemented with abstract reader/writer class,
+and dependency injections.
+so in case PostgreSQL isn't suit requirements, there will be not many code
+changes.
 
-> **_NOTE:_**  You can see db creating scrypt in `rates.sql` file.
+Writer service will write user reaction to the storage. 
+The storage will not have any indexes, as we will read to the db more often
+than read from it and writing operations should take as little time as possible.
 
-# HTTP-based API
+Unfortunately, I have no time to add nginx for 
+sharding/routing requests and path rewriting
+as well as implement performance/integration tests.
 
-`routes_api_service` contains HTTP-based API capable of handling the GET 
-request described below:
+There could be another approach: several writer sharded by username
+(as it seems to be more evenly spread across request than timestamp)
+and readers which collect data from all the writers (or its storages) 
+and return sum of data in every writer. But such approach lead to big 
+amount of network requests and big latency at get requests.
+They can be decreased by using cache, but it will lead to the same
+possibility of outdated info. So this approach wasn't implemented.
 
-API endpoint takes the following parameters:
+## Data definition
 
-* date_from
-* date_to
-* origin
-* destination
+Data is organized in the table in the DB:
 
-and returns a list with the average prices for each day on a route between port codes 
-*origin* and *destination*. 
-Return an empty value (JSON null) for days on which there are less than 
-*3* prices in total.
+## user_reaction
 
-Both the *origin, destination* params accept either port codes or region slugs, 
-making it possible to query for average prices per day between geographic 
-groups of ports.
+```sql
+CREATE TABLE user_reaction (
+    id SERIAL, username VARCHAR(20) NOT NULL, 
+    reaction VARCHAR(10) NOT NULL, 
+    timestamp timestamp(3) without time zone NOT NULL, 
+    PRIMARY KEY(id),
+)
+```
 
-## Usage
+| id  | username | reaction    | timestamp |
+|-----|----------|-------------|-----------|
+| 1   | alex     | click       | x         |
+| 2   | aleale   | impression  | x         |
+| 3   | bob      | click       | x         |
+| 4   | gleb     | impression  | x         |
 
-    curl "http://127.0.0.1/rates?date_from=2016-01-01&date_to=2016-01-10&origin=CNSGH&destination=north_europe_main"
+No triggers or validations were added due to the lack of time 
+(probably reaction require some).
 
-    [
-        {
-            "day": "2016-01-01",
-            "average_price": 1112
-        },
-        {
-            "day": "2016-01-02",
-            "average_price": 1112
-        },
-        {
-            "day": "2016-01-03",
-            "average_price": null
-        },
-        ...
-    ]
+# API
 
-## Extra details
+## Reader service
 
-The api service is implemented in python with usage of Flask framework.
-It also contains integration and performance tests in `tests\integration_tests`
-and `tests\perf_test` folders.
+```shell
+$ curl http://127.0.0.1:8000/analytics?timestamp={timestamp}
+"unique_users,3\nclicks,3\nimpressions,0\n"
+```
+
+## Writer service
+
+```shell
+$ curl -X POST http://127.0.0.1:8000/analytics/{timestamp}/{username}/{click|impression}
+```
 
 # Initial setup
 

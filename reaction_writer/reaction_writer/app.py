@@ -4,7 +4,7 @@ from reaction_writer.io.writer.abc import ReactionWriterABC
 from reaction_writer.io.writer.postgress.reaction_writer import (
     PostgresReactionWriter,
 )
-from reaction_writer.types import Username, Reaction, Timestamp
+from reaction_writer.types import Username, Reaction, Timestamp, REACTIONS
 from settings import Settings
 
 app = FastAPI()
@@ -44,5 +44,6 @@ async def post_analytics(
         username: Username,
         reaction: Reaction,
 ):
+    assert reaction in REACTIONS
     reaction_writer: ReactionWriterABC = app.state.reaction_writer
     await reaction_writer.write(username, reaction, timestamp)

@@ -1,11 +1,10 @@
 apiVersion: kubegres.reactive-tech.io/v1
 kind: Kubegres
 metadata:
-  name: users-reactions
+  name: users-reactions-postgres
   namespace: default
 
 spec:
-
    replicas: 1  # we won't read from db very often, so 1 replica should be enough
    image: postgres:14.1
 
@@ -24,3 +23,32 @@ spec:
            secretKeyRef:
               name: postgres-secret
               key: replicationUserPassword
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: postgres-pv
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 100M
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: postgres
+  name: postgres-pv-claim
+spec:
+  storageClassName: manual
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100M
