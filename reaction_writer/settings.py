@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     dbname: str = "postgres"
     dbuser: str = "postgres"
     dbpassword: str = "users_reactions_super"
-    dbhost: str = "192.168.56.101"
+    dbhost: str = "0.0.0.0"
     dbport: int = 5432
     dbpool_min_size: int = 1
     dbpool_max_size: int = 10
