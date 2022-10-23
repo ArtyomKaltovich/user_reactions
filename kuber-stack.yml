@@ -16,5 +16,11 @@ spec:
       - name: POSTGRES_PASSWORD
         valueFrom:
            secretKeyRef:
-              name: mypostgres-secret
+              name: postgres-secret
               key: superUserPassword
+
+      - name: POSTGRES_REPLICATION_PASSWORD
+        valueFrom:
+           secretKeyRef:
+              name: postgres-secret
+              key: replicationUserPassword
