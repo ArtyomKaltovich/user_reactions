@@ -1,7 +1,7 @@
 apiVersion: kubegres.reactive-tech.io/v1
 kind: Kubegres
 metadata:
-  name: users_reactions
+  name: users-reactions
   namespace: default
 
 spec:
