@@ -60,7 +60,14 @@ class PostgresReactionWriter(ReactionWriterABC):
             reaction: Reaction,
             timestamp: Timestamp,
     ) -> None:
-        await self._pool.execute(
-            f"execute {WRITE_REACTION_PLAN_NAME} "
-            f"('{username}', '{reaction}', {timestamp})"
-        )
+        try:
+            await self._pool.execute(  # type: ignore [union-attr]  # Item "None" of "Optional[Any]" has no attribute "execute"
+                f"execute {WRITE_REACTION_PLAN_NAME} "
+                f"('{username}', '{reaction}', {timestamp})"
+            )
+        except AttributeError:
+            raise TypeError("Please call connect first")
+
+    async def close(self):
+        if self._pool:
+            await self._pool.close()

@@ -28,6 +28,11 @@ async def startup():
     await reaction_writer.connect()
 
 
+@app.on_event("shutdown")
+async def shutdown():
+    await app.state.reaction_writer.close()
+
+
 @app.get("/")
 async def root():
     return {"message": "service has started"}
