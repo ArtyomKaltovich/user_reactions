@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: reaction-reader
+spec:
+  selector:
+    app: reaction-reader
+  ports:
+  - protocol: "TCP"
+    port: 8000
+    targetPort: 8000
+  type: LoadBalancer
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reaction-reader
+spec:
+  selector:
+    matchLabels:
+      app: reaction-reader
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: reaction-reader
+    spec:
+      containers:
+      - name: reaction-reader
+        image: reaction-reader:latest
+        imagePullPolicy: "IfNotPresent"
+        ports:
+        - containerPort: 8000

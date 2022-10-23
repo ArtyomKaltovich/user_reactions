@@ -12,4 +12,4 @@ class Settings(BaseSettings):
     dbpool_command_timeout: int = 60
     api_host: str = "0.0.0.0"
     api_port: int = 8000
-    debug: bool = True
+    debug: bool = False
